@@ -164,7 +164,8 @@ int main() {
   vector<double> map_waypoints_dy;
 
   // Waypoint map to read from
-  string map_file_ = "../data/highway_map.csv";
+  string map_file_ =
+      "/home/esteve/CarND-Path-Planning-Project/data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
   double max_s = 6945.554;
 
@@ -190,7 +191,10 @@ int main() {
     map_waypoints_dy.push_back(d_y);
   }
 
-  h.onMessage([&map_waypoints_x, &map_waypoints_y, &map_waypoints_s,
+  int lane = 6;
+  double ref_vel = 30;
+
+  h.onMessage([&lane, &ref_vel, &map_waypoints_x, &map_waypoints_y, &map_waypoints_s,
                &map_waypoints_dx,
                &map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data,
                                   size_t length, uWS::OpCode opCode) {
@@ -234,7 +238,6 @@ int main() {
           /***********************************************************************/
           // TODO: define a path made up of (x,y) points that the car will visit
           int prev_size = previous_path_x.size();
-          int lane = 6;
 
           /* vector with points car is going to follow  */
           vector<pair<double, double>> pts;
@@ -245,8 +248,12 @@ int main() {
 
           /* In case there's no points, lets add were we are right now */
           if (prev_size < 2) {
-            pair<double, double> prev_car(car_x - cos(car_yaw),
-                                          car_y - sin(car_yaw));
+            pair<double, double> prev_car(ref.first - cos(car_yaw),
+                                          ref.second - sin(car_yaw));
+            cout << prev_car.first << prev_car.second << endl;
+            cout << ref.first << ref.second << endl;
+            pts.push_back(prev_car);
+            pts.push_back(ref);
           } else {
             /* In case there is previous points on the vector,
              * let's add to our path vector our last position and the one before
@@ -258,24 +265,32 @@ int main() {
                                           previous_path_y[prev_size - 2]);
             ref_yaw =
                 atan2(ref.second - ref_prev.second, ref.first - ref_prev.first);
-
+            cout << ref_prev.first << ref_prev.second << endl;
+            cout << ref.first << ref.second << endl;
             pts.push_back(ref_prev);
             pts.push_back(ref);
           }
 
           /* From Frenet coordinates get thre points in x,y coordinates ahead to
            * draw a spline with them */
-          pts.push_back(getXY(car_s + 30, (2 + 4 * lane), map_waypoints_s,
-                              map_waypoints_x, map_waypoints_y));
-          pts.push_back(getXY(car_s + 60, (2 + 4 * lane), map_waypoints_s,
-                              map_waypoints_x, map_waypoints_y));
-          pts.push_back(getXY(car_s + 90, (2 + 4 * lane), map_waypoints_s,
-                              map_waypoints_x, map_waypoints_y));
+          pair<double, double> next_wp0 =
+              getXY(car_s + 30, (2 + 4 * lane), map_waypoints_s,
+                    map_waypoints_x, map_waypoints_y);
+          pair<double, double> next_wp1 =
+              getXY(car_s + 60, (2 + 4 * lane), map_waypoints_s,
+                    map_waypoints_x, map_waypoints_y);
+          pair<double, double> next_wp2 =
+              getXY(car_s + 90, (2 + 4 * lane), map_waypoints_s,
+                    map_waypoints_x, map_waypoints_y);
+
+          pts.push_back(next_wp0);
+          pts.push_back(next_wp1);
+          pts.push_back(next_wp2);
 
           /* ¿Set the points in the same direction? */
           for (auto &pt : pts) {
             pair<double, double> shift(pt.first - ref.first,
-                                       pt.second - pt.first);
+                                       pt.second - ref.second);
 
             pt = make_pair(
                 shift.first * cos(-ref_yaw) - shift.second * sin(-ref_yaw),
@@ -290,47 +305,51 @@ int main() {
           vector<double> next_y_vals;
 
           /* We need to cover the path we said before then add new points */
-          for (auto i = 0; i < previous_path_x.size(); i++) {
+          for (auto i = 0; i < prev_size ; i++) {
             next_x_vals.push_back(previous_path_x[i]);
             next_y_vals.push_back(previous_path_y[i]);
           }
           double target_x = 30.0;
           double target_y = s(target_x);
           double target_dist =
-              sqrt((target_x * target_y) + (target_y * target_y));
+              sqrt((target_x * target_x) + (target_y * target_y));
 
           double x_add_on = 0;
-          double ref_vel = 50;
 
-          for (auto i = 1; i <= 50 - previous_path_x.size(); i++) {
+          for (auto i = 1; i <= 50 - prev_size; i++) {
             /* Number of points we need to get the target based of ref_vel */
-            double N = target_dist/(.02*ref_vel/2.24);
-            double point_x = x_add_on + (target_x/N);
+            double N = target_dist / (.02 * ref_vel / 2.24);
+            double point_x = x_add_on + (target_x)/N;
             double point_y = s(point_x);
+
+            x_add_on = point_x;
 
             double x_ref = point_x;
             double y_ref = point_y;
 
             /* ¿Rotate to normal? */
-            point_x = (x_ref*cos(ref_yaw) - y_ref*sin(ref_yaw));
-            point_y = (x_ref*sin(ref_yaw) + y_ref*cos(ref_yaw));
+            point_x = (x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw));
+            point_y = (x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw));
 
-            point_x += x_ref;
-            point_y += y_ref;
+            point_x += x_ref+ ref.first;
+            point_y += y_ref+ ref.second;
 
             next_x_vals.push_back(point_x);
             next_y_vals.push_back(point_y);
-
           }
 
+          for (auto i = 0; i < next_x_vals.size(); i++){
+            cout << i << "-\t " << next_x_vals[i] << " " << next_y_vals[i] << endl;
+          }
           // sequentially every .02 seconds
           /***********************************************************************/
           /* END
           /***********************************************************************/
           json msgJson;
-
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
+
+          cout << "Send message" << endl;
 
           auto msg = "42[\"control\"," + msgJson.dump() + "]";
 
