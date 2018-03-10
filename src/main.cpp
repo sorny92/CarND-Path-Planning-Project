@@ -19,6 +19,7 @@ using json = nlohmann::json;
 constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
+bool is_in_lane(int d, int lane);
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -127,8 +128,8 @@ vector<double> getFrenet(double x, double y, double theta,
 
 // Transform from Frenet s,d coordinates to Cartesian x,y
 vector<double> getXY(double s, double d, const vector<double> &maps_s,
-                           const vector<double> &maps_x,
-                           const vector<double> &maps_y) {
+                     const vector<double> &maps_x,
+                     const vector<double> &maps_y) {
   int prev_wp = -1;
 
   while (s > maps_s[prev_wp + 1] && (prev_wp < (int)(maps_s.size() - 1))) {
@@ -233,45 +234,72 @@ int main() {
           // Sensor Fusion Data, a list of all other cars on the same side of
           // the road.
           auto sensor_fusion = j[1]["sensor_fusion"];
+          cout << "\n\n" << endl;
 
           /***********************************************************************/
           /* START
           /***********************************************************************/
           int prev_size = previous_path_x.size();
-          int speed_car_ahead = kMAX_SPEED;
+          int speed_car_ahead = 0;
 
-          if(prev_size > 0) {
+          if (prev_size > 0) {
             car_s = end_path_s;
           }
 
-          bool too_close = false;
+          bool car_ahead_too_close = false;
+          bool is_left_lane_available = true;
+          bool is_right_lane_available = true;
+          if (is_in_lane(car_d, 0)) {
+            is_left_lane_available = false;
+          }
+          if (is_in_lane(car_d, 2)) {
+            is_right_lane_available = false;
+          }
 
-          for(int i = 0; i <sensor_fusion.size(); i++) {
+          for (int i = 0; i < sensor_fusion.size(); i++) {
             float d = sensor_fusion[i][6];
-            if(d < (2+4*lane+2) && d > (2+4*lane-2)) {
-              double vx = sensor_fusion[i][3];
-              double vy = sensor_fusion[i][4];
-              double check_speed = sqrt(vx*vx + vy*vy);
-              double check_car_s = sensor_fusion[i][5];
+            double vx = sensor_fusion[i][3];
+            double vy = sensor_fusion[i][4];
+            double check_speed = sqrt(vx * vx + vy * vy);
+            double check_car_s = sensor_fusion[i][5];
 
-              check_car_s+=((double)prev_size*.02*check_speed);
-              if((check_car_s > car_s) && ((check_car_s-car_s) < 30)) {
-                too_close = true;
-                speed_car_ahead = check_speed ;
+            check_car_s += ((double)prev_size * .02 * check_speed);
+            // if is in my lane
+            if (is_in_lane(d, lane)) {
+              // If the car is ahead less than 30m
+              if ((check_car_s > car_s) && ((check_car_s - car_s) < 30)) {
+                car_ahead_too_close = true;
+                speed_car_ahead = check_speed;
+              }
+            } else {
+              if (((check_car_s > car_s) && ((check_car_s - car_s) < 30)) ||
+                  ((check_car_s < car_s) && ((car_s - check_car_s) < 20))) {
+                if (is_in_lane(d, lane + 1)) {
+                  cout << "Car on right lane" << endl;
+                  is_right_lane_available = false;
+                } else if (is_in_lane(d, lane - 1)) {
+                  cout << "Car on left lane" << endl;
+                  is_left_lane_available = false;
+                }
               }
             }
           }
-
-          if(too_close && ref_vel > speed_car_ahead) {
-            ref_vel -= .224;
-          }else if(ref_vel < kMAX_SPEED && ref_vel < speed_car_ahead) {
-            ref_vel += .224;
+          cout << "in lane " << lane << endl;
+          if(car_ahead_too_close && is_left_lane_available && lane > 0) {
+            lane -= 1;
+          }
+          if (is_right_lane_available && ref_vel > 30 && lane < 2) {
+            lane += 1;
           }
 
-
-
-
-
+          //control speed based on maximum speed and distance to the car ahead
+          if (!car_ahead_too_close && ref_vel < kMAX_SPEED) {
+            ref_vel += .224;
+          }
+          if (car_ahead_too_close && ref_vel > 2*speed_car_ahead) {
+            cout << speed_car_ahead << endl;
+            ref_vel -= .224;
+          }
 
           /** TRAJECTORY GENERATION */
 
@@ -376,10 +404,6 @@ int main() {
             next_y_vals.push_back(y_point);
           }
 
-          for (auto i = 0; i < next_x_vals.size(); i++) {
-            cout << i << "-\t " << next_x_vals[i] << " " << next_y_vals[i]
-                 << endl;
-          }
           // sequentially every .02 seconds
           /***********************************************************************/
           /* END
@@ -387,8 +411,6 @@ int main() {
           json msgJson;
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
-
-          cout << "Send message" << endl;
 
           auto msg = "42[\"control\"," + msgJson.dump() + "]";
 
@@ -435,4 +457,8 @@ int main() {
     return -1;
   }
   h.run();
+}
+
+bool is_in_lane(int d, int lane) {
+  return (d < (2 + 4 * lane + 2) && d > (2 + 4 * lane - 2));
 }
