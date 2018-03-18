@@ -195,8 +195,9 @@ int main() {
   int lane = 1;
   double ref_vel = 0;
   const double kMAX_SPEED = 49.5;
-
-  h.onMessage([&lane, &ref_vel, &kMAX_SPEED, &map_waypoints_x, &map_waypoints_y,
+  double s_on_lane = 0;
+  double last_s = 0;
+  h.onMessage([&last_s, &s_on_lane, &lane, &ref_vel, &kMAX_SPEED, &map_waypoints_x, &map_waypoints_y,
                &map_waypoints_s, &map_waypoints_dx,
                &map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data,
                                   size_t length, uWS::OpCode opCode) {
@@ -241,6 +242,7 @@ int main() {
           /***********************************************************************/
           int prev_size = previous_path_x.size();
           int speed_car_ahead = 0;
+          double s_car_ahead = 1000;
 
           if (prev_size > 0) {
             car_s = end_path_s;
@@ -268,6 +270,7 @@ int main() {
             if (is_in_lane(d, lane)) {
               // If the car is ahead less than 30m
               if ((check_car_s > car_s) && ((check_car_s - car_s) < 30)) {
+                s_car_ahead = (check_car_s - car_s);
                 car_ahead_too_close = true;
                 speed_car_ahead = check_speed;
               }
@@ -284,21 +287,32 @@ int main() {
               }
             }
           }
+          cout << s_car_ahead << endl;
           cout << "in lane " << lane << endl;
-          if(car_ahead_too_close && is_left_lane_available && lane > 0) {
+          if (car_ahead_too_close && is_left_lane_available && lane > 0 &&
+              s_on_lane > 50) {
             lane -= 1;
+            s_on_lane = 0;
           }
-          if (is_right_lane_available && ref_vel > 30 && lane < 2) {
+          if (is_right_lane_available && ref_vel > 30 && lane < 2 &&
+              s_on_lane > 50) {
             lane += 1;
+            s_on_lane = 0;
           }
-
-          //control speed based on maximum speed and distance to the car ahead
+          cout << s_on_lane << endl;
+          s_on_lane += car_s - last_s;
+          if(s_on_lane < 0) {
+            s_on_lane = 0;
+          }
+          last_s = car_s;
+          // control speed based on maximum speed and distance to the car
+          // ahead
           if (!car_ahead_too_close && ref_vel < kMAX_SPEED) {
             ref_vel += .224;
           }
-          if (car_ahead_too_close && ref_vel > 2*speed_car_ahead) {
+          if (car_ahead_too_close && ref_vel > 2 * speed_car_ahead) {
             cout << speed_car_ahead << endl;
-            ref_vel -= .224;
+            ref_vel -= .224*30/s_car_ahead;
           }
 
           /** TRAJECTORY GENERATION */
@@ -460,5 +474,5 @@ int main() {
 }
 
 bool is_in_lane(int d, int lane) {
-  return (d < (2 + 4 * lane + 2) && d > (2 + 4 * lane - 2));
+  return (d < (2 + 4 * lane + 3) && d > (2 + 4 * lane - 3));
 }
