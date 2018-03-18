@@ -7,10 +7,31 @@ You can download the Term3 Simulator which contains the Path Planning Project fr
 ### Goals
 In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
 
-#### The map of the highway is in data/highway_map.txt
-Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
+### Project rubric
+1. **The code compiles correctly.**  
+Doing cd to build folder and executing make once you have all the dependiencies solved will compile the program.
+2. **The car is able to drive at least 4.32 miles without incident.**  
+The car is able to drive at least 4.32 miles in the circuit. In one of the test it was able to get around 80 miles without accidents.  
+One of the things I observed it is that other cars change lines randomly so there wasn't an easy way to avoid accidents without assuming a big acceleration.
+3. **The car drives according to the speed limit.**  
+It's maximum speed is attached to 49.5mph so it never reaches a higher speed.
+4. **Max Acceleration and Jerk are not Exceeded.**
 
-The highway's waypoints loop around so the frenet s value, distance along the road, goes from 0 to 6945.554.
+5. **Car does not have collisions.**  
+As I mention in the point 2, the car is able to drive safetely but the problem comes with the random behaviour of the other cars that decide to change lane even when you are in the side of that car then creating an accident. Although this happens every several hours.
+6. **The car stays in its lane, except for the time between changing lanes.**  
+The car, to attach to european laws, try to stay in the lane in the right always that it doesn't have to pass a car. This point goes a bit against the rubic point but it does make sense for European laws.
+7. **The car is able to change lanes.**  
+When it detects a car less than 30 meters ahead and it has enough space in the left lane it pass the car it has in front of it. Then to come back to the lane in the right as long there is enough distance with the car behind.
+
+#### Model documentation  
+The algorith that generate paths is quite straight forward, mainly based on the Q&A walkthrough.  
+First of all the algorithm try to stay always that is possible in the right lane of the road. This is due because in spanish road you should go in the right lane always that is possible so you don't block cars tha goes faster than you.  
+
+When there is a car less than 30 meters ahead it will try to pass it. To do so, it will check the left lane is available to pass. The conditions to state the lane is available is that there is no car in the left lane 30 meter ahead or 20 meters behind. If this condition is not satisfied, the car will slowdown based on the distance to the car ahead and the difference of speed, then set to the same speed as the car ahead.
+Once the lane is available it will pass the car.  
+Always there is no car in the right lane and it's not the right lane, it will try to change lane to that one so it complies with the first working condition.
+
 
 ## Basic Build Instructions
 
@@ -19,52 +40,7 @@ The highway's waypoints loop around so the frenet s value, distance along the ro
 3. Compile: `cmake .. && make`
 4. Run it: `./path_planning`.
 
-Here is the data provided from the Simulator to the C++ Program
 
-#### Main car's localization Data (No Noise)
-
-["x"] The car's x position in map coordinates
-
-["y"] The car's y position in map coordinates
-
-["s"] The car's s position in frenet coordinates
-
-["d"] The car's d position in frenet coordinates
-
-["yaw"] The car's yaw angle in the map
-
-["speed"] The car's speed in MPH
-
-#### Previous path data given to the Planner
-
-//Note: Return the previous list but with processed points removed, can be a nice tool to show how far along
-the path has processed since last time. 
-
-["previous_path_x"] The previous list of x points previously given to the simulator
-
-["previous_path_y"] The previous list of y points previously given to the simulator
-
-#### Previous path's end s and d values 
-
-["end_path_s"] The previous list's last point's frenet s value
-
-["end_path_d"] The previous list's last point's frenet d value
-
-#### Sensor Fusion Data, a list of all other car's attributes on the same side of the road. (No Noise)
-
-["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates. 
-
-## Details
-
-1. The car uses a perfect controller and will visit every (x,y) point it recieves in the list every .02 seconds. The units for the (x,y) points are in meters and the spacing of the points determines the speed of the car. The vector going from a point to the next point in the list dictates the angle of the car. Acceleration both in the tangential and normal directions is measured along with the jerk, the rate of change of total Acceleration. The (x,y) point paths that the planner recieves should not have a total acceleration that goes over 10 m/s^2, also the jerk should not go over 50 m/s^3. (NOTE: As this is BETA, these requirements might change. Also currently jerk is over a .02 second interval, it would probably be better to average total acceleration over 1 second and measure jerk from that.
-
-2. There will be some latency between the simulator running and the path planner returning a path, with optimized code usually its not very long maybe just 1-3 time steps. During this delay the simulator will continue using points that it was last given, because of this its a good idea to store the last points you have used so you can have a smooth transition. previous_path_x, and previous_path_y can be helpful for this transition since they show the last points given to the simulator controller with the processed points already removed. You would either return a path that extends this previous path or make sure to create a new path that has a smooth transition with this last path.
-
-## Tips
-
-A really helpful resource for doing this project and creating smooth trajectories was using http://kluge.in-chemnitz.de/opensource/spline/, the spline function is in a single hearder file is really easy to use.
-
----
 
 ## Dependencies
 
