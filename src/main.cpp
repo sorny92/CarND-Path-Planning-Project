@@ -165,8 +165,7 @@ int main() {
   vector<double> map_waypoints_dy;
 
   // Waypoint map to read from
-  string map_file_ =
-      "/home/esteve/CarND-Path-Planning-Project/data/highway_map.csv";
+  string map_file_ = "../data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
   double max_s = 6945.554;
 
@@ -197,8 +196,9 @@ int main() {
   const double kMAX_SPEED = 49.5;
   double s_on_lane = 0;
   double last_s = 0;
-  h.onMessage([&last_s, &s_on_lane, &lane, &ref_vel, &kMAX_SPEED, &map_waypoints_x, &map_waypoints_y,
-               &map_waypoints_s, &map_waypoints_dx,
+  h.onMessage([&last_s, &s_on_lane, &lane, &ref_vel, &kMAX_SPEED,
+               &map_waypoints_x, &map_waypoints_y, &map_waypoints_s,
+               &map_waypoints_dx,
                &map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data,
                                   size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -301,7 +301,7 @@ int main() {
           }
           cout << s_on_lane << endl;
           s_on_lane += car_s - last_s;
-          if(s_on_lane < 0) {
+          if (s_on_lane < 0) {
             s_on_lane = 0;
           }
           last_s = car_s;
@@ -312,7 +312,7 @@ int main() {
           }
           if (car_ahead_too_close && ref_vel > 2 * speed_car_ahead) {
             cout << speed_car_ahead << endl;
-            ref_vel -= .224*30/s_car_ahead;
+            ref_vel -= .224 * 30 / s_car_ahead;
           }
 
           /** TRAJECTORY GENERATION */
